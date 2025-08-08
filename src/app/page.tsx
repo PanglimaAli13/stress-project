@@ -1,103 +1,101 @@
-import Image from "next/image";
+// src/app/page.tsx
 
-export default function Home() {
+"use client";
+
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+
+export default function LoginPage() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  // === PERUBAHAN UTAMA DI SINI ===
+  const handleLogin = async () => {
+    if (!username || !password) {
+      toast.error("Username dan password wajib diisi.");
+      return;
+    }
+    setIsLoading(true);
+
+    try {
+      // 1. Buat URL untuk panggilan langsung ke Google
+      const url = new URL(process.env.NEXT_PUBLIC_APPS_SCRIPT_URL!);
+      url.searchParams.append('action', 'authenticateUser');
+      url.searchParams.append('username', username);
+      url.searchParams.append('password', password);
+
+      // 2. Lakukan panggilan langsung dari browser
+      const res = await fetch(url.toString());
+      const result = await res.json();
+
+      // 3. Periksa hasil dari Google
+      if (result.status === 'success' && result.data.status === 'success') {
+        const userData = result.data.userData;
+        
+        // 4. Jika berhasil, panggil signIn HANYA untuk membuat sesi
+        const signInResult = await signIn("credentials", {
+          redirect: false,
+          userData: JSON.stringify(userData), // Kirim data user yang sudah valid
+        });
+
+        if (signInResult?.ok) {
+          router.push("/dashboard");
+        } else {
+          throw new Error("Gagal membuat sesi login.");
+        }
+
+      } else {
+        // Jika Google mengembalikan error (misal: password salah)
+        throw new Error(result.data.message || "Autentikasi gagal.");
+      }
+
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // ==============================
+  
+  const handleKeyPress = (event: React.KeyboardEvent) => { if (event.key === 'Enter') handleLogin(); };
+
+  const whatsappMessage = `Wahai Yang Mulia. Saya, ${username || '...'} adalah seorang pelupa...`;
+  const whatsappUrl = `https://wa.me/6281318138660?text=${encodeURIComponent(whatsappMessage)}`;
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+    <main className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-[400px]" onKeyPress={handleKeyPress}>
+        <CardHeader><CardTitle className="text-center text-2xl font-bold">STRESS Login</CardTitle></CardHeader>
+        <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" type="text" placeholder="Masukkan username Anda" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-full" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-4">
+          <Button onClick={handleLogin} disabled={isLoading} className="w-full">{isLoading ? "Memproses..." : "Masuk"}</Button>
+          <a href={username ? whatsappUrl : '#'} onClick={(e) => !username && e.preventDefault()} className={`text-sm text-blue-600 hover:underline ${!username && 'opacity-50 cursor-not-allowed'}`}>Lupa Password?</a>
+        </CardFooter>
+      </Card>
+    </main>
   );
 }
