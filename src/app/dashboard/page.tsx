@@ -90,7 +90,6 @@ export default function DashboardPage() {
     onError: (error: Error) => toast.error("Terjadi error: " + error.message),
   };
 
-  // Perbaikan: Tambahkan type assertion `as Promise<ApiResponse>`
   const addShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('addShipment', { data: JSON.stringify(data) }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setIsInputModalOpen(false) });
   const updateShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('updateShipment', { data: JSON.stringify(data) }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setEditingShipment(null) });
   const deleteShipmentMutation = useMutation({ mutationFn: (rowIndex: number) => fetchApi('deleteShipment', { rowIndex }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setDeletingShipment(null) });
@@ -144,7 +143,12 @@ export default function DashboardPage() {
 
   const processedData = useMemo(() => {
     const dataToProcess = shipments || [];
-    const filteredShipments = session?.user?.status === 'admin' ? dataToProcess : dataToProcess.filter(s => s.NAMA === session.user?.name);
+    const userName = session?.user?.name;
+    
+    const filteredShipments = session?.user?.status === 'admin' 
+      ? dataToProcess 
+      : (userName ? dataToProcess.filter(s => s.NAMA === userName) : []);
+    
     const totalHk = new Set(filteredShipments.map(s => s.TANGGAL)).size;
     const totalDp = filteredShipments.reduce((acc, s) => acc + Number(s['JUMLAH TOKO'] || 0), 0);
     const totalTerkirim = filteredShipments.reduce((acc, s) => acc + Number(s.TERKIRIM || 0), 0);
@@ -176,7 +180,8 @@ export default function DashboardPage() {
   }, [shipments, session]);
 
   const tableColumns = useMemo(() => {
-    if (session?.user?.status === 'personal') return columns.filter(col => col.accessorKey !== 'NAMA');
+    // Perbaikan: Tambahkan pengecekan 'accessorKey' in col
+    if (session?.user?.status === 'personal') return columns.filter(col => 'accessorKey' in col && col.accessorKey !== 'NAMA');
     return columns;
   }, [session?.user?.status, columns]);
 
