@@ -1,7 +1,6 @@
 // src/app/api/auth/[...nextauth]/route.ts
 
-import NextAuth from "next-auth";
-import { AuthOptions } from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 const authOptions: AuthOptions = {
@@ -9,19 +8,12 @@ const authOptions: AuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        // Menerima data user yang sudah diverifikasi dari frontend
         userData: { label: "User Data", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.userData) {
-          return null;
-        }
-
+        if (!credentials?.userData) return null;
         try {
-          // Langsung parse data user yang sudah divalidasi oleh browser
           const user = JSON.parse(credentials.userData);
-          
-          // Jika data user valid, buat sesi
           if (user && user.username) {
             return {
               id: user.username,
@@ -29,19 +21,15 @@ const authOptions: AuthOptions = {
               status: user.status,
             };
           }
-          
-          return null; // Gagal jika data tidak valid
-
-        } catch (error: any) {
-          console.error("Authorize error:", error.message);
-          throw new Error(error.message);
+          return null;
+        } catch (error) {
+          console.error("Authorize error:", error);
+          return null;
         }
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -51,14 +39,12 @@ const authOptions: AuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.status = token.status as string;
+        session.user.status = token.status;
       }
       return session;
     },
   },
-  pages: {
-    signIn: "/",
-  },
+  pages: { signIn: "/" },
   secret: process.env.NEXTAUTH_SECRET,
 };
 
