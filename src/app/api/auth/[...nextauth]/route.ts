@@ -4,22 +4,21 @@ import NextAuth from "next-auth";
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-// PERUBAHAN DI SINI: Hapus kata 'export'
 const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        // Kita sekarang akan mengirim data user yang sudah diverifikasi
+        // Menerima data user yang sudah diverifikasi dari frontend
         userData: { label: "User Data", type: "text" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         if (!credentials?.userData) {
           return null;
         }
 
         try {
-          // Langsung parse data user dari frontend
+          // Langsung parse data user yang sudah divalidasi oleh browser
           const user = JSON.parse(credentials.userData);
           
           // Jika data user valid, buat sesi
@@ -46,13 +45,13 @@ const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.status = (user as any).status;
+        token.status = user.status;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).status = token.status;
+        session.user.status = token.status as string;
       }
       return session;
     },
@@ -65,5 +64,4 @@ const authOptions: AuthOptions = {
 
 const handler = NextAuth(authOptions);
 
-// Hanya ekspor GET dan POST yang diizinkan
 export { handler as GET, handler as POST };

@@ -17,13 +17,13 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-
-// Hapus 'import { useEffect }' karena kita tidak membutuhkannya lagi
+import { Session } from "next-auth";
+import { useEffect } from "react";
 
 interface InputShipmentFormProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    session: any;
+    session: Session | null;
     drivers: { nik: string; nama: string }[];
     onSubmit: (values: z.infer<typeof shipmentSchema>) => void;
     isSubmitting: boolean;
@@ -32,44 +32,33 @@ interface InputShipmentFormProps {
 export function InputShipmentForm({ isOpen, setIsOpen, session, drivers, onSubmit, isSubmitting }: InputShipmentFormProps) {
     const form = useForm<z.infer<typeof shipmentSchema>>({
         resolver: zodResolver(shipmentSchema),
-        // === PERUBAHAN KUNCI ADA DI SINI ===
-        // Langsung isi nama user di sini. `|| ""` memastikan nilainya tidak pernah 'undefined'.
         defaultValues: {
-            NAMA: session?.user?.name || "",
+            NAMA: session?.user?.status === 'personal' ? session.user.name ?? "" : "",
             ALASAN: "",
-            // Kosongkan sisanya agar user mengisi manual
-            TANGGAL: undefined,
-            SHIPMENT: undefined,
-            JUMLAH_TOKO: undefined,
-            TERKIRIM: undefined,
         },
     });
 
-    // Kita tidak lagi memerlukan `useEffect` untuk me-reset form
+    useEffect(() => {
+        if (isOpen) {
+            form.reset({
+                NAMA: session?.user?.status === 'personal' ? session.user.name ?? "" : "",
+                TANGGAL: undefined,
+                SHIPMENT: "",
+                JUMLAH_TOKO: undefined,
+                TERKIRIM: undefined,
+                ALASAN: "",
+            });
+        }
+    }, [isOpen, session, form]);
 
     const jumlahToko = form.watch("JUMLAH_TOKO");
     const terkirim = form.watch("TERKIRIM");
-    const gagal = Number.isNaN(jumlahToko) || Number.isNaN(terkirim) || !jumlahToko || !terkirim ? 0 : jumlahToko - terkirim;
+    const gagal = !isNaN(Number(jumlahToko)) && !isNaN(Number(terkirim)) ? Number(jumlahToko) - Number(terkirim) : 0;
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => {
-            if (open) {
-                // Saat dialog dibuka, reset form ke nilai default terbaru
-                form.reset({
-                    NAMA: session?.user?.name || "",
-                    ALASAN: "",
-                    TANGGAL: undefined,
-                    SHIPMENT: undefined,
-                    JUMLAH_TOKO: undefined,
-                    TERKIRIM: undefined,
-                });
-            }
-            setIsOpen(open);
-        }}>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>Input Shipment Baru</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Input Shipment Baru</DialogTitle></DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         {session?.user?.status === 'admin' ? (

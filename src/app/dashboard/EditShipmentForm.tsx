@@ -30,6 +30,11 @@ interface EditShipmentFormProps {
 export function EditShipmentForm({ isOpen, setIsOpen, shipment, onSubmit, isSubmitting }: EditShipmentFormProps) {
     const form = useForm<z.infer<typeof shipmentSchema>>({
         resolver: zodResolver(shipmentSchema),
+        defaultValues: {
+            NAMA: "",
+            SHIPMENT: "",
+            ALASAN: "",
+        }
     });
 
     useEffect(() => {
@@ -47,7 +52,7 @@ export function EditShipmentForm({ isOpen, setIsOpen, shipment, onSubmit, isSubm
 
     const jumlahToko = form.watch("JUMLAH_TOKO");
     const terkirim = form.watch("TERKIRIM");
-    const gagal = Number.isNaN(jumlahToko) || Number.isNaN(terkirim) || !jumlahToko || !terkirim ? 0 : jumlahToko - terkirim;
+    const gagal = !isNaN(Number(jumlahToko)) && !isNaN(Number(terkirim)) ? Number(jumlahToko) - Number(terkirim) : 0;
 
     const handleFormSubmit = (values: z.infer<typeof shipmentSchema>) => {
         if (shipment) {
@@ -58,9 +63,7 @@ export function EditShipmentForm({ isOpen, setIsOpen, shipment, onSubmit, isSubm
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>Edit Shipment</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Edit Shipment</DialogTitle></DialogHeader>
                 {shipment && (
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
