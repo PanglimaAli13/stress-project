@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ArrowUpDown, MoreHorizontal } from "lucide-react"
 
-// Definisikan kembali tipe data Shipment agar file ini mandiri
+// Definisikan tipe data Shipment dengan tambahan rowIndex
 export type Shipment = {
+    rowIndex: number; // <-- PERBAIKAN DITAMBAHKAN DI SINI
     'SUBMIT ID': string
     'SUBMIT DATE': string
     'NIK': string
@@ -81,6 +82,7 @@ export const columns: ColumnDef<Shipment>[] = [
             <DropdownMenuItem onClick={() => navigator.clipboard.writeText(shipment["SUBMIT ID"])}>
               Salin Submit ID
             </DropdownMenuItem>
+            {/* Aksi Edit dan Delete akan ditangani oleh state di page.tsx */}
             <DropdownMenuItem>Edit Data</DropdownMenuItem>
             <DropdownMenuItem className="text-red-500">Hapus Data</DropdownMenuItem>
           </DropdownMenuContent>
