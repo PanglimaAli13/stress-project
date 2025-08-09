@@ -10,11 +10,11 @@ import { StatCard } from "@/components/StatCard";
 import { CalendarDays, Package, CheckCircle, XCircle, Trophy, FilterX, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Legend, Bar, PieChart, Pie, Cell } from "recharts";
-import { DataTable } from "./dashboard/DataTable";
-import { Shipment } from "./dashboard/columns";
-import { InputShipmentForm } from "./dashboard/InputShipmentForm";
-import { EditShipmentForm } from "./dashboard/EditShipmentForm";
-import { shipmentSchema } from "./dashboard/form-schema";
+import { DataTable } from "./DataTable";
+import { Shipment } from "./columns";
+import { InputShipmentForm } from "./InputShipmentForm";
+import { EditShipmentForm } from "./EditShipmentForm";
+import { shipmentSchema } from "./form-schema";
 import { z } from "zod";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
@@ -29,8 +29,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 
+// Tipe data untuk driver yang diambil
+type DriverData = { nik: string; nama: string };
+type RankingData = { nama: string; percTerkirim: string; percGagal: string; score: number };
 
-const fetchApi = async (action: string, params?: Record<string, any>): Promise<any> => {
+// Fungsi untuk fetch data dari Google Apps Script
+const fetchApi = async (action: string, params?: Record<string, string | number>): Promise<unknown> => {
   let url = `${process.env.NEXT_PUBLIC_APPS_SCRIPT_URL}?action=${action}`;
   if (params) {
     for (const key in params) {
@@ -38,6 +42,9 @@ const fetchApi = async (action: string, params?: Record<string, any>): Promise<a
     }
   }
   const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Network response was not ok for action: ${action}`);
+  }
   const result = await res.json();
   if (result.status !== 'success') throw new Error(result.message || `Gagal menjalankan aksi: ${action}`);
   return result.data;
@@ -55,7 +62,7 @@ export default function DashboardPage() {
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   
   const filterParams = useMemo(() => {
-    const params: Record<string, any> = {};
+    const params: Record<string, string> = {};
     if (dateRange?.from && dateRange?.to) {
       params.startDate = format(dateRange.from, 'yyyy-MM-dd');
       params.endDate = format(dateRange.to, 'yyyy-MM-dd');
@@ -68,25 +75,25 @@ export default function DashboardPage() {
 
   const { data: shipments, isLoading, isError } = useQuery<Shipment[]>({ 
     queryKey: ['shipments', filterParams],
-    queryFn: () => fetchApi('getShipments', filterParams) 
+    queryFn: () => fetchApi('getShipments', filterParams) as Promise<Shipment[]>
   });
   
-  const { data: drivers } = useQuery<{ nik: string, nama: string }[]>({ 
+  const { data: drivers } = useQuery<DriverData[]>({ 
     queryKey: ['drivers'], 
-    queryFn: () => fetchApi('getDrivers'), 
+    queryFn: () => fetchApi('getDrivers') as Promise<DriverData[]>, 
     enabled: !!session 
   });
 
   const mutationOptions = {
-    onSuccess: (data: any) => {
+    onSuccess: (data: { message: string }) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
     },
     onError: (error: Error) => toast.error("Terjadi error: " + error.message),
   };
 
-  const addShipmentMutation = useMutation({ mutationFn: (data: any) => fetchApi('addShipment', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setIsInputModalOpen(false) });
-  const updateShipmentMutation = useMutation({ mutationFn: (data: any) => fetchApi('updateShipment', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setEditingShipment(null) });
+  const addShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('addShipment', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setIsInputModalOpen(false) });
+  const updateShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('updateShipment', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setEditingShipment(null) });
   const deleteShipmentMutation = useMutation({ mutationFn: (rowIndex: number) => fetchApi('deleteShipment', { rowIndex }), ...mutationOptions, onSettled: () => setDeletingShipment(null) });
 
   function handleAddSubmit(values: z.infer<typeof shipmentSchema>) {
@@ -138,7 +145,7 @@ export default function DashboardPage() {
 
   const processedData = useMemo(() => {
     const dataToProcess = shipments || [];
-    const filteredShipments = session?.user?.status === 'admin' ? dataToProcess : dataToProcess.filter(s => s.NAMA === session.user.name);
+    const filteredShipments = session?.user?.status === 'admin' ? dataToProcess : dataToProcess.filter(s => s.NAMA === session.user?.name);
     const totalHk = new Set(filteredShipments.map(s => s.TANGGAL)).size;
     const totalDp = filteredShipments.reduce((acc, s) => acc + Number(s['JUMLAH TOKO'] || 0), 0);
     const totalTerkirim = filteredShipments.reduce((acc, s) => acc + Number(s.TERKIRIM || 0), 0);
@@ -152,7 +159,7 @@ export default function DashboardPage() {
       dailyData[tanggal].gagal += Number(s.GAGAL || 0);
     });
     const stackedChartData = Object.entries(dailyData).map(([tanggal, data]) => ({ tanggal, ...data }));
-    let ranking: any[] = [];
+    let ranking: RankingData[] = [];
     if (session?.user?.status === 'admin') {
       const driverStats: { [key: string]: { totalToko: number; totalTerkirim: number; } } = {};
       (shipments || []).forEach(s => {

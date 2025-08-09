@@ -30,9 +30,13 @@ interface EditShipmentFormProps {
 export function EditShipmentForm({ isOpen, setIsOpen, shipment, onSubmit, isSubmitting }: EditShipmentFormProps) {
     const form = useForm<z.infer<typeof shipmentSchema>>({
         resolver: zodResolver(shipmentSchema),
+        // Perbaikan: Sediakan nilai default yang lengkap sesuai tipe skema
         defaultValues: {
             NAMA: "",
+            TANGGAL: new Date(),
             SHIPMENT: "",
+            JUMLAH_TOKO: 0,
+            TERKIRIM: 0,
             ALASAN: "",
         }
     });

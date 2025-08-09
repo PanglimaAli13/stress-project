@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
+import type { Session } from "next-auth";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,15 +39,27 @@ interface Driver {
     'PASSWORD'?: string;
 }
 
-// Fungsi API
-const fetchApi = async (action: string, method: 'GET' | 'POST' = 'GET', params?: Record<string, any>): Promise<any> => {
+// Tipe data untuk respons API yang diharapkan
+type ApiResponse = {
+    message: string;
+    newUrl?: string;
+    [key: string]: unknown;
+};
+
+// Fungsi API yang sudah diperbaiki
+const fetchApi = async (action: string, method: 'GET' | 'POST' = 'GET', params?: Record<string, unknown>): Promise<unknown> => {
   if (method === 'GET') {
     let url = `${process.env.NEXT_PUBLIC_APPS_SCRIPT_URL}?action=${action}`;
-    if (params) for (const key in params) url += `&${key}=${encodeURIComponent(params[key])}`;
+    if (params) {
+        for (const key in params) {
+            url += `&${key}=${encodeURIComponent(String(params[key]))}`;
+        }
+    }
     const res = await fetch(url);
     const result = await res.json();
     if (result.status !== 'success') throw new Error(result.message || `Gagal menjalankan aksi: ${action}`);
-    return result.data;
+    // Perbaikan: Kembalikan seluruh objek result agar bisa akses .message
+    return result;
   } else { // POST
     const res = await fetch(process.env.NEXT_PUBLIC_APPS_SCRIPT_URL!, {
       method: 'POST',
@@ -60,7 +73,7 @@ const fetchApi = async (action: string, method: 'GET' | 'POST' = 'GET', params?:
 };
 
 // Komponen Profil Detail yang sudah dirombak
-function DriverProfile({ driver, isEditable, onBack, session }: { driver: Driver, isEditable: boolean, onBack?: () => void, session: any }) {
+function DriverProfile({ driver, isEditable, onBack, session }: { driver: Driver, isEditable: boolean, onBack?: () => void, session: Session | null }) {
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -70,13 +83,17 @@ function DriverProfile({ driver, isEditable, onBack, session }: { driver: Driver
     useEffect(() => { setFormData(driver); }, [driver]);
 
     const mutationOptions = {
-        onSuccess: (data: any) => { toast.success(data.message); queryClient.invalidateQueries({ queryKey: ['allDrivers'] }); },
+        onSuccess: (data: ApiResponse) => { 
+            toast.success(data.message); 
+            queryClient.invalidateQueries({ queryKey: ['allDrivers'] }); 
+        },
         onError: (error: Error) => toast.error("Terjadi error: " + error.message),
     };
 
-    const updateMutation = useMutation({ mutationFn: (data: any) => fetchApi('updateDriver', 'GET', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setIsEditing(false) });
-    const deleteMutation = useMutation({ mutationFn: (rowIndex: number) => fetchApi('deleteDriver', 'GET', { rowIndex }), ...mutationOptions, onSettled: () => { setIsDeleting(false); onBack?.(); } });
-    const uploadPhotoMutation = useMutation({ mutationFn: (data: any) => fetchApi('uploadProfilePicture', 'POST', data), ...mutationOptions });
+    // Perbaikan: Tambahkan type assertion `as Promise<ApiResponse>`
+    const updateMutation = useMutation({ mutationFn: (data: Driver) => fetchApi('updateDriver', 'GET', { data: JSON.stringify(data) }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setIsEditing(false) });
+    const deleteMutation = useMutation({ mutationFn: (rowIndex: number) => fetchApi('deleteDriver', 'GET', { rowIndex }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => { setIsDeleting(false); onBack?.(); } });
+    const uploadPhotoMutation = useMutation({ mutationFn: (data: { fileData: string; oldFileUrl: string; driverName: string }) => fetchApi('uploadProfilePicture', 'POST', data) as Promise<ApiResponse>, ...mutationOptions });
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     const handleSelectChange = (name: string, value: string) => setFormData(prev => ({ ...prev, [name]: value }));
@@ -90,7 +107,8 @@ function DriverProfile({ driver, isEditable, onBack, session }: { driver: Driver
                 const base64String = reader.result as string;
                 uploadPhotoMutation.mutate({ fileData: base64String, oldFileUrl: formData['FOTO PROFILE'], driverName: formData['NAMA LENGKAP'] }, {
                     onSuccess: (data) => {
-                        const updatedFormData = { ...formData, 'FOTO PROFILE': data.newUrl };
+                        const responseData = data as { newUrl: string };
+                        const updatedFormData = { ...formData, 'FOTO PROFILE': responseData.newUrl };
                         setFormData(updatedFormData);
                         updateMutation.mutate(updatedFormData);
                     }
@@ -180,12 +198,16 @@ function DriverProfile({ driver, isEditable, onBack, session }: { driver: Driver
 // Komponen utama halaman
 export default function DriversPage() {
     const { data: session } = useSession();
-    const { data: drivers, isLoading, isError } = useQuery<Driver[]>({ queryKey: ['allDrivers'], queryFn: () => fetchApi('getDrivers') });
+    const { data: drivers, isLoading, isError } = useQuery<Driver[]>({ queryKey: ['allDrivers'], queryFn: () => fetchApi('getDrivers') as Promise<Driver[]> });
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
 
     const myProfile = useMemo(() => {
-        if (!drivers || !session?.user) return null;
-        return drivers.find(driver => driver['NAMA LENGKAP'] === session.user.name);
+        // Perbaikan: Lakukan pengecekan yang lebih eksplisit untuk meyakinkan TypeScript
+        const userName = session?.user?.name;
+        if (!drivers || !userName) {
+            return null;
+        }
+        return drivers.find(driver => driver['NAMA LENGKAP'] === userName);
     }, [drivers, session]);
 
     if (isLoading) return <div className="text-center py-10">Memuat data driver...</div>;
