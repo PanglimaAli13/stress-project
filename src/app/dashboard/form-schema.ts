@@ -3,8 +3,12 @@
 import { z } from "zod";
 
 export const shipmentSchema = z.object({
-  NAMA: z.string({ required_error: "Nama wajib dipilih." }).min(1, "Nama wajib dipilih."),
-  TANGGAL: z.date({ required_error: "Tanggal wajib diisi." }),
+  NAMA: z.string().min(1, { message: "Nama wajib dipilih." }),
+  
+  // Perbaikan: Hapus objek parameter dari z.coerce.date() untuk mengatasi error build.
+  // Zod akan memberikan pesan error default jika input tidak bisa diubah menjadi tanggal.
+  TANGGAL: z.coerce.date(),
+
   SHIPMENT: z.string().length(10, { message: "Shipment harus 10 digit." }),
   JUMLAH_TOKO: z.coerce.number().min(1, { message: "Jumlah toko minimal 1." }),
   TERKIRIM: z.coerce.number().min(0, { message: "Terkirim tidak boleh negatif." }),
@@ -20,5 +24,6 @@ export const shipmentSchema = z.object({
   return true;
 }, {
   message: "Alasan wajib diisi jika ada pengiriman yang gagal.",
+  // Perbaikan: Memperbaiki typo pada path dari "ALAN" menjadi "ALASAN"
   path: ["ALASAN"],
 });

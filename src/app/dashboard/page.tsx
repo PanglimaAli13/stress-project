@@ -32,8 +32,9 @@ import { cn } from "@/lib/utils";
 // Tipe data untuk driver yang diambil
 type DriverData = { nik: string; nama: string };
 type RankingData = { nama: string; percTerkirim: string; percGagal: string; score: number };
+// Tipe data untuk respons API yang diharapkan
+type ApiResponse = { message: string; [key: string]: unknown };
 
-// Fungsi untuk fetch data dari Google Apps Script
 const fetchApi = async (action: string, params?: Record<string, string | number>): Promise<unknown> => {
   let url = `${process.env.NEXT_PUBLIC_APPS_SCRIPT_URL}?action=${action}`;
   if (params) {
@@ -42,12 +43,9 @@ const fetchApi = async (action: string, params?: Record<string, string | number>
     }
   }
   const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Network response was not ok for action: ${action}`);
-  }
   const result = await res.json();
   if (result.status !== 'success') throw new Error(result.message || `Gagal menjalankan aksi: ${action}`);
-  return result.data;
+  return result; // Kembalikan seluruh objek result
 };
 
 export default function DashboardPage() {
@@ -75,26 +73,27 @@ export default function DashboardPage() {
 
   const { data: shipments, isLoading, isError } = useQuery<Shipment[]>({ 
     queryKey: ['shipments', filterParams],
-    queryFn: () => fetchApi('getShipments', filterParams) as Promise<Shipment[]>
+    queryFn: () => fetchApi('getShipments', filterParams).then(res => (res as { data: Shipment[] }).data)
   });
   
   const { data: drivers } = useQuery<DriverData[]>({ 
     queryKey: ['drivers'], 
-    queryFn: () => fetchApi('getDrivers') as Promise<DriverData[]>, 
+    queryFn: () => fetchApi('getDrivers').then(res => (res as { data: DriverData[] }).data), 
     enabled: !!session 
   });
 
   const mutationOptions = {
-    onSuccess: (data: { message: string }) => {
+    onSuccess: (data: ApiResponse) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
     },
     onError: (error: Error) => toast.error("Terjadi error: " + error.message),
   };
 
-  const addShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('addShipment', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setIsInputModalOpen(false) });
-  const updateShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('updateShipment', { data: JSON.stringify(data) }), ...mutationOptions, onSettled: () => setEditingShipment(null) });
-  const deleteShipmentMutation = useMutation({ mutationFn: (rowIndex: number) => fetchApi('deleteShipment', { rowIndex }), ...mutationOptions, onSettled: () => setDeletingShipment(null) });
+  // Perbaikan: Tambahkan type assertion `as Promise<ApiResponse>`
+  const addShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('addShipment', { data: JSON.stringify(data) }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setIsInputModalOpen(false) });
+  const updateShipmentMutation = useMutation({ mutationFn: (data: Record<string, unknown>) => fetchApi('updateShipment', { data: JSON.stringify(data) }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setEditingShipment(null) });
+  const deleteShipmentMutation = useMutation({ mutationFn: (rowIndex: number) => fetchApi('deleteShipment', { rowIndex }) as Promise<ApiResponse>, ...mutationOptions, onSettled: () => setDeletingShipment(null) });
 
   function handleAddSubmit(values: z.infer<typeof shipmentSchema>) {
     const driverData = drivers?.find(d => d.nama === values.NAMA);

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { shipmentSchema } from "./form-schema";
@@ -31,9 +31,14 @@ interface InputShipmentFormProps {
 
 export function InputShipmentForm({ isOpen, setIsOpen, session, drivers, onSubmit, isSubmitting }: InputShipmentFormProps) {
     const form = useForm<z.infer<typeof shipmentSchema>>({
-        resolver: zodResolver(shipmentSchema),
+        resolver: zodResolver(shipmentSchema) as Resolver<z.infer<typeof shipmentSchema>>,
+        // Perbaikan: Sediakan nilai default yang lengkap sesuai tipe skema
         defaultValues: {
             NAMA: session?.user?.status === 'personal' ? session.user.name ?? "" : "",
+            TANGGAL: undefined,
+            SHIPMENT: "",
+            JUMLAH_TOKO: 0,
+            TERKIRIM: 0,
             ALASAN: "",
         },
     });
@@ -44,8 +49,8 @@ export function InputShipmentForm({ isOpen, setIsOpen, session, drivers, onSubmi
                 NAMA: session?.user?.status === 'personal' ? session.user.name ?? "" : "",
                 TANGGAL: undefined,
                 SHIPMENT: "",
-                JUMLAH_TOKO: undefined,
-                TERKIRIM: undefined,
+                JUMLAH_TOKO: 0,
+                TERKIRIM: 0,
                 ALASAN: "",
             });
         }
@@ -114,14 +119,14 @@ export function InputShipmentForm({ isOpen, setIsOpen, session, drivers, onSubmi
                             <FormField control={form.control} name="JUMLAH_TOKO" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Jumlah Toko</FormLabel>
-                                    <FormControl><Input {...field} type="text" inputMode="numeric" /></FormControl>
+                                    <FormControl><Input {...field} type="number" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
                             <FormField control={form.control} name="TERKIRIM" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Terkirim</FormLabel>
-                                    <FormControl><Input {...field} type="text" inputMode="numeric" /></FormControl>
+                                    <FormControl><Input {...field} type="number" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>

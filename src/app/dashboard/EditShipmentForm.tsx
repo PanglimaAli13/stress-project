@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { shipmentSchema } from "./form-schema";
@@ -29,8 +29,8 @@ interface EditShipmentFormProps {
 
 export function EditShipmentForm({ isOpen, setIsOpen, shipment, onSubmit, isSubmitting }: EditShipmentFormProps) {
     const form = useForm<z.infer<typeof shipmentSchema>>({
-        resolver: zodResolver(shipmentSchema),
-        // Perbaikan: Sediakan nilai default yang lengkap sesuai tipe skema
+        // Perbaikan: Menambahkan type assertion untuk mengatasi error type inference
+        resolver: zodResolver(shipmentSchema) as Resolver<z.infer<typeof shipmentSchema>>,
         defaultValues: {
             NAMA: "",
             TANGGAL: new Date(),
@@ -97,7 +97,8 @@ export function EditShipmentForm({ isOpen, setIsOpen, shipment, onSubmit, isSubm
                             <FormField control={form.control} name="SHIPMENT" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Shipment</FormLabel>
-                                    <FormControl><Input {...field} type="number" placeholder="10 digit angka" /></FormControl>
+                                    {/* Perbaikan: Menggunakan type="text" agar sesuai dengan skema z.string() */}
+                                    <FormControl><Input {...field} type="text" placeholder="10 digit angka" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
